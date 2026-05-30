@@ -1,21 +1,16 @@
-// Almacenamiento: Firebase (modo producción) o localStorage (modo demo)
+// Almacenamiento: Supabase (modo producción) o localStorage (modo demo)
 const Store = {
-  db:        null,
-  storageRef:null,
-  useLocal:  true,
-  _listeners:[],
+  client:   null,
+  useLocal: true,
 
   init() {
-    // Intentar inicializar Firebase si está configurado
-    if (!USE_LOCAL_STORAGE && FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY") {
+    if (!USE_LOCAL_STORAGE && SUPABASE_CONFIG.url !== "YOUR_SUPABASE_URL") {
       try {
-        if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
-        this.db         = firebase.firestore();
-        this.storageRef = firebase.storage().ref();
-        this.useLocal   = false;
-        console.log("[Store] Firebase activo");
+        this.client  = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        this.useLocal = false;
+        console.log("[Store] Supabase activo");
       } catch (err) {
-        console.warn("[Store] Firebase falló, usando localStorage:", err);
+        console.warn("[Store] Supabase falló, usando localStorage:", err);
         this.useLocal = true;
       }
     }
@@ -25,14 +20,12 @@ const Store = {
     }
   },
 
-  // Genera un ID único para cada reporte
   _generateId() {
     const ts   = Date.now().toString(36).toUpperCase();
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
     return `RPT-${ts}-${rand}`;
   },
 
-  // Guarda un reporte con su imagen (si existe)
   async save(data, imageBlob) {
     const id        = this._generateId();
     const timestamp = new Date();
@@ -40,7 +33,6 @@ const Store = {
 
     if (imageBlob) {
       if (this.useLocal) {
-        // Para localStorage usamos un thumbnail pequeño (ahorra espacio)
         const thumb = await Compressor.compress(
           imageBlob,
           APP_CONFIG.thumbWidth,
@@ -49,9 +41,13 @@ const Store = {
         );
         imageUrl = await Compressor.toDataURL(thumb);
       } else {
-        const ref = this.storageRef.child(`reports/${id}/photo.jpg`);
-        await ref.put(imageBlob, { contentType: "image/jpeg" });
-        imageUrl = await ref.getDownloadURL();
+        const path = `reports/${id}/photo.jpg`;
+        const { error } = await this.client.storage
+          .from("photos")
+          .upload(path, imageBlob, { contentType: "image/jpeg" });
+        if (error) throw error;
+        const { data: urlData } = this.client.storage.from("photos").getPublicUrl(path);
+        imageUrl = urlData.publicUrl;
       }
     }
 
@@ -69,40 +65,67 @@ const Store = {
       try {
         localStorage.setItem("temuco_reports", JSON.stringify(all));
       } catch {
-        // localStorage lleno: eliminar los más antiguos y reintentar
         while (all.length > 20) all.pop();
         localStorage.setItem("temuco_reports", JSON.stringify(all));
       }
     } else {
-      await this.db.collection("reports").doc(id).set(report);
+      const { error } = await this.client.from("reports").insert({
+        id:           report.id,
+        lat:          report.lat,
+        lng:          report.lng,
+        category:     report.category,
+        description:  report.description,
+        image_url:    report.imageUrl,
+        timestamp:    report.timestamp,
+        timestamp_ms: report.timestampMs,
+      });
+      if (error) throw error;
     }
 
     return report;
   },
 
-  // Carga todos los reportes una vez
   async loadAll() {
     if (this.useLocal) return this._getLocal();
-    const snap = await this.db
-      .collection("reports")
-      .orderBy("timestampMs", "desc")
-      .limit(300)
-      .get();
-    return snap.docs.map(d => d.data());
+    const { data, error } = await this.client
+      .from("reports")
+      .select("*")
+      .order("timestamp_ms", { ascending: false })
+      .limit(300);
+    if (error) throw error;
+    return data.map(this._toReport);
   },
 
-  // Suscripción en tiempo real (Firebase) o carga única (local)
   subscribe(cb) {
     if (this.useLocal) {
       cb(this._getLocal());
       return () => {};
     }
-    const unsub = this.db
-      .collection("reports")
-      .orderBy("timestampMs", "desc")
-      .limit(300)
-      .onSnapshot(snap => cb(snap.docs.map(d => d.data())));
-    return unsub;
+
+    this.loadAll().then(cb);
+
+    const channel = this.client
+      .channel("reports-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "reports" }, async () => {
+        const reports = await this.loadAll();
+        cb(reports);
+      })
+      .subscribe();
+
+    return () => this.client.removeChannel(channel);
+  },
+
+  _toReport(row) {
+    return {
+      id:          row.id,
+      lat:         row.lat,
+      lng:         row.lng,
+      category:    row.category,
+      description: row.description,
+      imageUrl:    row.image_url,
+      timestamp:   row.timestamp,
+      timestampMs: row.timestamp_ms,
+    };
   },
 
   _getLocal() {

@@ -1,26 +1,22 @@
 // =========================================================
 //  TEMUCO REPORTA — Configuración
 //
-//  Para activar Firebase (almacenamiento compartido entre
+//  Para activar Supabase (almacenamiento compartido entre
 //  dispositivos), crea un proyecto en:
-//  https://console.firebase.google.com
+//  https://supabase.com
 //
-//  Luego reemplaza los valores de FIREBASE_CONFIG y
+//  Luego reemplaza los valores de SUPABASE_CONFIG y
 //  cambia USE_LOCAL_STORAGE a false.
 // =========================================================
 
-const FIREBASE_CONFIG = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+const SUPABASE_CONFIG = {
+  url:     "https://nxpxldugqrmppkprpcjv.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im54cHhsZHVncXJtcHBrcHJwY2p2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxNzY5OTAsImV4cCI6MjA5NTc1Mjk5MH0.b4Na9Zr_Govi-5OWVYegF8sc8zj1GOwkiMRP8PoqL3g"
 };
 
 // true  → guarda en localStorage (solo este dispositivo, sin configuración)
-// false → usa Firebase (requiere credenciales válidas arriba)
-const USE_LOCAL_STORAGE = true;
+// false → usa Supabase (requiere credenciales válidas arriba)
+const USE_LOCAL_STORAGE = false;
 
 // ── Configuración general de la app ──────────────────────
 const APP_CONFIG = {
