@@ -26,12 +26,9 @@ const App = {
       }
     });
 
-    // Mostrar hint si es primer uso
-    if (!localStorage.getItem("tr_hint_seen")) {
-      setTimeout(() => {
-        document.getElementById("map-hint").classList.remove("hidden");
-      }, 1200);
-    }
+    setTimeout(() => {
+      document.getElementById("map-hint").classList.remove("hidden");
+    }, 1200);
 
     // Ocultar loading
     setTimeout(() => {
@@ -57,7 +54,6 @@ const App = {
     // Hint
     document.getElementById("close-hint").addEventListener("click", () => {
       document.getElementById("map-hint").classList.add("hidden");
-      localStorage.setItem("tr_hint_seen", "1");
     });
 
     // Banner demo
