@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Reporta problemas de infraestructura urbana en Temuco a la Municipalidad.">
+  <title>Temuco Reporta — Infraestructura Urbana</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Cargando -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+      <div class="loading-icon"><i class="fas fa-city"></i></div>
+      <h1 class="loading-title">Temuco Reporta</h1>
+      <p class="loading-sub">Cargando mapa satelital...</p>
+      <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Banner modo demo -->
+  <div id="demo-banner" class="demo-banner hidden">
+    <i class="fas fa-info-circle"></i>
+    <span>Modo demo — los reportes se guardan en este dispositivo.</span>
+    <button id="close-demo-banner" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+  </div>
+
+  <!-- Mapa -->
+  <div id="map" role="application" aria-label="Mapa satelital de Temuco"></div>
+
+  <!-- Barra superior -->
+  <header class="top-bar">
+    <div class="app-brand">
+      <i class="fas fa-city"></i>
+      <span>Temuco Reporta</span>
+    </div>
+    <div class="top-actions">
+      <button id="btn-my-location" class="icon-btn" title="Mi ubicación" aria-label="Ir a mi ubicación">
+        <i class="fas fa-location-crosshairs"></i>
+      </button>
+      <button id="btn-reports-list" class="icon-btn" title="Lista de reportes" aria-label="Ver lista de reportes">
+        <i class="fas fa-list-ul"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Hint inicial -->
+  <div id="map-hint" class="map-hint hidden">
+    <i class="fas fa-hand-pointer"></i>
+    <span>Toca el mapa para reportar un problema</span>
+    <button id="close-hint" aria-label="Cerrar ayuda"><i class="fas fa-times"></i></button>
+  </div>
+
+  <!-- Indicador modo agregar pin -->
+  <div id="adding-pin-indicator" class="adding-pin-indicator hidden">
+    <i class="fas fa-map-pin"></i>
+    <span>Toca el lugar exacto del problema</span>
+  </div>
+
+  <!-- FAB -->
+  <div class="fab-container">
+    <div class="fab-label" id="fab-label">Agregar reporte</div>
+    <button id="fab-add" class="fab" title="Agregar reporte" aria-label="Agregar nuevo reporte">
+      <i class="fas fa-plus" id="fab-icon"></i>
+    </button>
+  </div>
+
+  <!-- ===== Modal: Nuevo Reporte ===== -->
+  <div id="modal-report" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-report-title">
+    <div class="modal-sheet" id="modal-sheet">
+      <div class="modal-drag-handle"></div>
+
+      <div class="modal-header">
+        <h2 id="modal-report-title"><i class="fas fa-triangle-exclamation"></i> Nuevo Reporte</h2>
+        <button id="close-modal" class="close-btn" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- Coordenadas -->
+        <div class="coord-chip">
+          <i class="fas fa-map-pin"></i>
+          <span id="coord-text">Calculando coordenadas...</span>
+        </div>
+
+        <!-- Categoría -->
+        <div class="form-section">
+          <label class="form-label">Tipo de problema</label>
+          <div class="category-grid" role="group" aria-label="Selecciona el tipo de problema">
+            <button class="cat-btn active" data-cat="pavimento" aria-pressed="true">
+              <i class="fas fa-road"></i><span>Pavimento</span>
+            </button>
+            <button class="cat-btn" data-cat="iluminacion" aria-pressed="false">
+              <i class="fas fa-lightbulb"></i><span>Iluminación</span>
+            </button>
+            <button class="cat-btn" data-cat="veredas" aria-pressed="false">
+              <i class="fas fa-person-walking"></i><span>Veredas</span>
+            </button>
+            <button class="cat-btn" data-cat="basura" aria-pressed="false">
+              <i class="fas fa-trash-can"></i><span>Basura</span>
+            </button>
+            <button class="cat-btn" data-cat="areas-verdes" aria-pressed="false">
+              <i class="fas fa-tree"></i><span>Áreas Verdes</span>
+            </button>
+            <button class="cat-btn" data-cat="señalizacion" aria-pressed="false">
+              <i class="fas fa-signs-post"></i><span>Señalización</span>
+            </button>
+            <button class="cat-btn" data-cat="alcantarillado" aria-pressed="false">
+              <i class="fas fa-water"></i><span>Alcantarillado</span>
+            </button>
+            <button class="cat-btn" data-cat="otro" aria-pressed="false">
+              <i class="fas fa-circle-question"></i><span>Otro</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="form-section">
+          <label class="form-label" for="description">Descripción del problema</label>
+          <textarea
+            id="description"
+            placeholder="Ej: Bache profundo en la calzada, sin demarcación vial desde hace 3 meses..."
+            rows="3"
+            maxlength="500"
+          ></textarea>
+          <div class="char-count"><span id="char-count">0</span>/500</div>
+        </div>
+
+        <!-- Foto -->
+        <div class="form-section">
+          <label class="form-label">Foto del problema <span class="optional">(recomendado)</span></label>
+
+          <!-- Vista cámara -->
+          <div id="camera-section" class="camera-section hidden">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <div class="camera-overlay">
+              <div class="camera-frame"></div>
+            </div>
+            <div class="camera-controls">
+              <button id="btn-flip-camera" class="cam-ctrl-btn" aria-label="Cambiar cámara">
+                <i class="fas fa-rotate"></i>
+              </button>
+              <button id="btn-capture" class="cam-shutter" aria-label="Tomar foto">
+                <span class="cam-shutter-inner"></span>
+              </button>
+              <button id="btn-stop-camera" class="cam-ctrl-btn" aria-label="Cancelar">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Preview de imagen -->
+          <div id="image-preview-wrap" class="image-preview-wrap hidden">
+            <img id="image-preview" src="" alt="Vista previa de la foto" />
+            <div class="image-preview-bar">
+              <span class="image-size-label" id="image-size-label"></span>
+              <button id="btn-remove-image" class="btn-remove-image">
+                <i class="fas fa-trash"></i> Quitar foto
+              </button>
+            </div>
+          </div>
+
+          <!-- Botones imagen -->
+          <div id="image-actions" class="image-actions">
+            <button id="btn-open-camera" class="img-btn primary">
+              <i class="fas fa-camera"></i>
+              <span>Tomar foto</span>
+            </button>
+            <button id="btn-gallery" class="img-btn secondary">
+              <i class="fas fa-image"></i>
+              <span>Galería</span>
+            </button>
+            <input type="file" id="file-input" accept="image/*" class="hidden" aria-label="Seleccionar imagen de la galería">
+          </div>
+        </div>
+
+        <!-- Enviar -->
+        <button id="btn-submit" class="submit-btn">
+          <i class="fas fa-paper-plane"></i>
+          <span>Enviar Reporte</span>
+        </button>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Modal: Ver Reporte ===== -->
+  <div id="modal-view" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="view-title">
+    <div class="modal-sheet">
+      <div class="modal-drag-handle"></div>
+      <div class="modal-header">
+        <h2 id="view-title"><i class="fas fa-circle-info"></i> Reporte</h2>
+        <button id="close-view-modal" class="close-btn" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div id="view-img-wrap" class="view-img-wrap hidden">
+          <img id="view-img" src="" alt="Foto del reporte">
+        </div>
+        <div class="view-meta">
+          <div class="meta-row"><i class="fas fa-calendar-days"></i><span id="view-date"></span></div>
+          <div class="meta-row"><i class="fas fa-map-pin"></i><span id="view-coords"></span></div>
+          <div class="meta-row id-row"><i class="fas fa-hashtag"></i><span id="view-id"></span></div>
+        </div>
+        <div class="view-desc-box">
+          <i class="fas fa-align-left"></i>
+          <p id="view-description"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Panel: Lista de reportes ===== -->
+  <aside id="reports-panel" class="reports-panel hidden" role="complementary" aria-label="Lista de reportes">
+    <div class="panel-header">
+      <div class="panel-title">
+        <i class="fas fa-clipboard-list"></i>
+        <h3>Reportes en Temuco</h3>
+      </div>
+      <button id="close-reports-panel" class="close-btn" aria-label="Cerrar panel"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="panel-stats" id="panel-stats"></div>
+    <div id="reports-list" class="reports-list" role="list"></div>
+  </aside>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+  <script src="js/config.js"></script>
+  <script src="js/compress.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
